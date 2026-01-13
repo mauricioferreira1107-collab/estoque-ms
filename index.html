@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MS Estoque">
+    <link rel="manifest" href="manifest.json">
+    <title>MS Pinturas - Controle de Estoque</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .page { display: none; }
+        .page.active { display: block; }
+        .toast { position: fixed; bottom: 2rem; right: 2rem; padding: 1rem 1.5rem; background: #10b981; color: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 1000; animation: slideIn 0.3s ease; }
+        .toast.error { background: #ef4444; }
+        @keyframes slideIn { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-slate-100 to-blue-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 text-white sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+                    <i data-lucide="package" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">MS Pinturas</h1>
+                    <p class="text-xs text-slate-400">Controle de Estoque</p>
+                </div>
+            </div>
+            <button onclick="toggleMenu()" class="lg:hidden p-2 rounded-lg hover:bg-slate-700">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Menu -->
+    <nav id="mobileMenu" class="hidden lg:hidden fixed top-16 left-0 right-0 bg-white border-b border-slate-200 p-4 z-40">
+        <button onclick="navigateTo('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="home" class="w-5 h-5"></i> Dashboard</button>
+        <button onclick="navigateTo('estoque')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="package" class="w-5 h-5"></i> Estoque</button>
+        <button onclick="navigateTo('entrada')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="plus" class="w-5 h-5"></i> Entrada</button>
+        <button onclick="navigateTo('saida')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="minus" class="w-5 h-5"></i> Saída</button>
+        <button onclick="navigateTo('cadastros')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="clipboard-list" class="w-5 h-5"></i> Cadastros</button>
+        <button onclick="navigateTo('porObra')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="building-2" class="w-5 h-5"></i> Por Obra</button>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-6 flex gap-6">
+        <!-- Sidebar Desktop -->
+        <aside class="hidden lg:block w-64 shrink-0">
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 sticky top-24 space-y-2">
+                <button data-page="dashboard" onclick="navigateTo('dashboard')" class="nav-btn active w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="home" class="w-5 h-5"></i><span class="font-medium">Dashboard</span></button>
+                <button data-page="estoque" onclick="navigateTo('estoque')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="package" class="w-5 h-5"></i><span class="font-medium">Estoque</span><span id="badgeCriticos" class="ml-auto px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600 hidden"></span></button>
+                <button data-page="entrada" onclick="navigateTo('entrada')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="plus-circle" class="w-5 h-5"></i><span class="font-medium">Entrada</span></button>
+                <button data-page="saida" onclick="navigateTo('saida')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="minus-circle" class="w-5 h-5"></i><span class="font-medium">Saída</span></button>
+                <button data-page="cadastros" onclick="navigateTo('cadastros')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="clipboard-list" class="w-5 h-5"></i><span class="font-medium">Cadastros</span></button>
+                <button data-page="porObra" onclick="navigateTo('porObra')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="building-2" class="w-5 h-5"></i><span class="font-medium">Por Obra</span></button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 min-w-0">
+            <!-- Dashboard -->
+            <div id="page-dashboard" class="page active">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Dashboard</h2>
+                <div id="statsGrid" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></div>
+                <div class="grid md:grid-cols-2 gap-4 mb-6">
+                    <button onclick="navigateTo('entrada')" class="flex items-center gap-4 p-6 bg-white rounded-2xl border border-slate-200 hover:shadow-lg hover:border-emerald-400 transition-all">
+                        <div class="w-14 h-14 rounded-xl bg-emerald-100 flex items-center justify-center"><i data-lucide="plus" class="w-7 h-7 text-emerald-600"></i></div>
+                        <div class="text-left"><h3 class="font-semibold text-slate-800 text-lg">Registrar Entrada</h3><p class="text-slate-500 text-sm">Adicionar materiais</p></div>
+                    </button>
+                    <button onclick="navigateTo('saida')" class="flex items-center gap-4 p-6 bg-white rounded-2xl border border-slate-200 hover:shadow-lg hover:border-orange-400 transition-all">
+                        <div class="w-14 h-14 rounded-xl bg-orange-100 flex items-center justify-center"><i data-lucide="minus" class="w-7 h-7 text-orange-600"></i></div>
+                        <div class="text-left"><h3 class="font-semibold text-slate-800 text-lg">Registrar Saída</h3><p class="text-slate-500 text-sm">Retirar materiais</p></div>
+                    </button>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 p-6">
+                    <h3 class="font-semibold text-slate-800 text-lg mb-4 flex items-center gap-2"><i data-lucide="history" class="w-5 h-5"></i>Movimentações Recentes</h3>
+                    <div id="historicoRecente"></div>
+                </div>
+            </div>
+
+            <!-- Estoque -->
+            <div id="page-estoque" class="page">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Estoque Geral</h2>
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 mb-4">
+                    <div class="flex flex-col lg:flex-row gap-4">
+                        <div class="flex-1 relative">
+                            <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                            <input type="text" id="searchEstoque" placeholder="Buscar material..." oninput="filterEstoque()" class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="flex gap-2">
+                            <select id="filterCategoria" onchange="filterEstoque()" class="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="">Categorias</option><option value="EPI">EPI</option><option value="Ferramentas">Ferramentas</option><option value="Consumíveis">Consumíveis</option><option value="Elétrico">Elétrico</option><option value="Outros">Outros</option></select>
+                            <select id="filterStatus" onchange="filterEstoque()" class="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="">Status</option><option value="OK">OK</option><option value="REPOR">Repor</option><option value="CRÍTICO">Crítico</option></select>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-slate-500 mb-4"><span id="countItens" class="font-semibold text-slate-700">0</span> itens</p>
+                <div id="estoqueGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+            </div>
+
+            <!-- Entrada -->
+            <div id="page-entrada" class="page">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Registrar Entrada</h2>
+                <div class="max-w-xl">
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center"><i data-lucide="plus" class="w-6 h-6 text-emerald-600"></i></div>
+                            <div><h3 class="text-xl font-bold text-slate-800">Nova Entrada</h3><p class="text-slate-500 text-sm">Adicionar materiais ao estoque</p></div>
+                        </div>
+                        <div class="space-y-4">
+                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Material *</label><select id="entradaMaterial" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
+                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Quantidade *</label><input type="number" id="entradaQtd" min="1" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="0"></div>
+                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Fornecedor</label><input type="text" id="entradaFornecedor" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="Nome do fornecedor"></div>
+                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Nota Fiscal</label><input type="text" id="entradaNF" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="Número da NF"></div>
+                            <button onclick="registrarEntrada()" class="w-full py-4 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors">Confirmar Entrada</button>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 mt-6">
+                        <h3 class="font-semibold text-slate-800 mb-4">Últimas Entradas</h3>
+                        <div id="historicoEntradas"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Saída -->
+            <div id="page-saida" class="page">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Registrar Saída</h2>
+                <div class="max-w-xl">
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center"><i data-lucide="minus" class="w-6 h-6 text-orange-600"></i></div>
+                            <div><h3 class="text-xl font-bold text-slate-800">Nova Saída</h3><p class="text-slate-500 text-sm">Retirar materiais do estoque</p></div>
+                        </div>
+                        <div class="space-y-4">
+                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Material *</label><select id="saidaMaterial" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
+                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Quantidade *</label><input type="number" id="saidaQtd" min="1" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="0"></div>
+                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Obra/Destino *</label><select id="saidaObra" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
+                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Responsável</label><select id="saidaResponsavel" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
+                            <button onclick="registrarSaida()" class="w-full py-4 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 transition-colors">Confirmar Saída</button>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 mt-6">
+                        <h3 class="font-semibold text-slate-800 mb-4">Últimas Saídas</h3>
+                        <div id="historicoSaidas"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cadastros -->
+            <div id="page-cadastros" class="page">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Cadastros</h2>
+                
+                <!-- Material -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+                    <h3 class="font-semibold text-slate-800 text-lg mb-4 flex items-center gap-2"><i data-lucide="package" class="w-5 h-5"></i>Novo Material</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="lg:col-span-2"><input type="text" id="novoMaterialNome" placeholder="Nome do Material *" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div><select id="novoMaterialCat" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="EPI">EPI</option><option value="Ferramentas">Ferramentas</option><option value="Consumíveis">Consumíveis</option><option value="Elétrico">Elétrico</option><option value="Outros">Outros</option></select></div>
+                        <div><select id="novoMaterialUnid" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="Unid">Unid</option><option value="PC">PC</option><option value="PR">PR</option><option value="RL">RL</option><option value="SC">SC</option><option value="KG">KG</option><option value="LT">LT</option></select></div>
+                        <div><input type="number" id="novoMaterialEstoque" placeholder="Estoque Inicial" min="0" value="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div><input type="number" id="novoMaterialMinimo" placeholder="Estoque Mínimo" min="0" value="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                    </div>
+                    <button onclick="cadastrarMaterial()" class="mt-4 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">Cadastrar Material</button>
+                </div>
+
+                <!-- Obra -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+                    <h3 class="font-semibold text-slate-800 text-lg mb-4 flex items-center gap-2"><i data-lucide="building-2" class="w-5 h-5"></i>Nova Obra</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div><input type="text" id="novaObraId" placeholder="Código *" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div class="lg:col-span-2"><input type="text" id="novaObraNome" placeholder="Nome da Obra *" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div><select id="novaObraStatus" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="Em andamento">Em andamento</option><option value="Ativo">Ativo</option><option value="Finalizada">Finalizada</option></select></div>
+                        <div class="lg:col-span-4"><input type="text" id="novaObraEndereco" placeholder="Endereço" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                    </div>
+                    <button onclick="cadastrarObra()" class="mt-4 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">Cadastrar Obra</button>
+                    <div class="mt-6 pt-6 border-t border-slate-200"><h4 class="font-medium text-slate-700 mb-3">Obras Cadastradas</h4><div id="listaObras"></div></div>
+                </div>
+
+                <!-- Responsável -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-6">
+                    <h3 class="font-semibold text-slate-800 text-lg mb-4 flex items-center gap-2"><i data-lucide="users" class="w-5 h-5"></i>Novo Responsável</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><input type="text" id="novoRespNome" placeholder="Nome *" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div><select id="novoRespFuncao" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="">Função</option><option value="Motorista">Motorista</option><option value="Fiscal">Fiscal</option><option value="Pintor">Pintor</option><option value="Encarregado">Encarregado</option><option value="Ajudante">Ajudante</option></select></div>
+                    </div>
+                    <button onclick="cadastrarResponsavel()" class="mt-4 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">Cadastrar Responsável</button>
+                    <div class="mt-6 pt-6 border-t border-slate-200"><h4 class="font-medium text-slate-700 mb-3">Responsáveis Cadastrados</h4><div id="listaResponsaveis" class="grid md:grid-cols-2 gap-2"></div></div>
+                </div>
+            </div>
+
+            <!-- Por Obra -->
+            <div id="page-porObra" class="page">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Consumo por Obra</h2>
+                <div class="max-w-md mb-6">
+                    <select id="selectObra" onchange="renderConsumoObra()" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl"><option value="">Todas as Obras</option></select>
+                </div>
+                <div id="obrasContainer"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
