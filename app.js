@@ -1,4 +1,138 @@
 // =====================
+// CONFIGURAÇÃO DE USUÁRIOS
+// =====================
+// Adicione ou remova usuários aqui
+// Formato: { usuario: 'nome', senha: 'senha123', nome: 'Nome Completo', perfil: 'admin' ou 'operador' }
+const USUARIOS_AUTORIZADOS = [
+    { usuario: 'admin', senha: 'ms2024', nome: 'Administrador', perfil: 'admin' },
+    { usuario: 'jailan', senha: 'jailan123', nome: 'Jailan', perfil: 'operador' },
+    { usuario: 'lucas', senha: 'lucas123', nome: 'Lucas', perfil: 'operador' },
+    { usuario: 'ilmar', senha: 'ilmar123', nome: 'Ilmar', perfil: 'operador' },
+    { usuario: 'valney', senha: 'valney123', nome: 'Valney', perfil: 'operador' },
+    // Adicione mais usuários abaixo:
+    // { usuario: 'novo', senha: 'senha', nome: 'Nome', perfil: 'operador' },
+];
+
+// Tempo de sessão em horas (0 = não expira)
+const TEMPO_SESSAO_HORAS = 24;
+
+// =====================
+// FUNÇÕES DE LOGIN
+// =====================
+let usuarioAtual = null;
+
+function verificarAutenticacao() {
+    const sessao = localStorage.getItem('ms_sessao');
+    if (sessao) {
+        const dados = JSON.parse(sessao);
+        // Verificar se a sessão expirou
+        if (TEMPO_SESSAO_HORAS > 0) {
+            const expiracao = new Date(dados.expiracao);
+            if (new Date() > expiracao) {
+                fazerLogout();
+                return false;
+            }
+        }
+        usuarioAtual = dados.usuario;
+        mostrarSistema();
+        return true;
+    }
+    mostrarLogin();
+    return false;
+}
+
+function fazerLogin() {
+    const usuario = document.getElementById('loginUser').value.trim().toLowerCase();
+    const senha = document.getElementById('loginSenha').value;
+    const lembrar = document.getElementById('lembrarLogin').checked;
+    
+    const userEncontrado = USUARIOS_AUTORIZADOS.find(u => 
+        u.usuario.toLowerCase() === usuario && u.senha === senha
+    );
+    
+    if (userEncontrado) {
+        usuarioAtual = userEncontrado;
+        
+        // Calcular expiração
+        let expiracao = null;
+        if (TEMPO_SESSAO_HORAS > 0 && !lembrar) {
+            expiracao = new Date();
+            expiracao.setHours(expiracao.getHours() + TEMPO_SESSAO_HORAS);
+        } else if (lembrar) {
+            // Se "manter conectado", expira em 30 dias
+            expiracao = new Date();
+            expiracao.setDate(expiracao.getDate() + 30);
+        }
+        
+        // Salvar sessão
+        localStorage.setItem('ms_sessao', JSON.stringify({
+            usuario: userEncontrado,
+            expiracao: expiracao ? expiracao.toISOString() : null,
+            loginEm: new Date().toISOString()
+        }));
+        
+        // Registrar log de acesso
+        registrarLog('login', `${userEncontrado.nome} entrou no sistema`);
+        
+        mostrarSistema();
+        showToast(`Bem-vindo, ${userEncontrado.nome}!`);
+    } else {
+        document.getElementById('loginError').textContent = 'Usuário ou senha incorretos';
+        document.getElementById('loginError').classList.remove('hidden');
+        document.getElementById('loginSenha').value = '';
+        
+        // Esconder erro após 3 segundos
+        setTimeout(() => {
+            document.getElementById('loginError').classList.add('hidden');
+        }, 3000);
+    }
+}
+
+function fazerLogout() {
+    if (usuarioAtual) {
+        registrarLog('logout', `${usuarioAtual.nome} saiu do sistema`);
+    }
+    usuarioAtual = null;
+    localStorage.removeItem('ms_sessao');
+    mostrarLogin();
+    showToast('Você saiu do sistema');
+}
+
+function mostrarLogin() {
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('loginUser').value = '';
+    document.getElementById('loginSenha').value = '';
+    document.getElementById('loginUser').focus();
+}
+
+function mostrarSistema() {
+    document.getElementById('loginScreen').classList.add('hidden');
+    
+    // Mostrar nome do usuário logado
+    const nomeUser = usuarioAtual ? usuarioAtual.nome : '';
+    const elUser = document.getElementById('userLogado');
+    const elUserMobile = document.getElementById('userLogadoMobile');
+    if (elUser) elUser.textContent = nomeUser;
+    if (elUserMobile) elUserMobile.textContent = nomeUser;
+    
+    lucide.createIcons();
+    renderDashboard();
+}
+
+function registrarLog(tipo, mensagem) {
+    let logs = JSON.parse(localStorage.getItem('ms_logs') || '[]');
+    logs.push({
+        tipo,
+        mensagem,
+        usuario: usuarioAtual?.nome || 'Sistema',
+        data: new Date().toISOString()
+    });
+    // Manter apenas últimos 100 logs
+    if (logs.length > 100) logs = logs.slice(-100);
+    localStorage.setItem('ms_logs', JSON.stringify(logs));
+}
+
+// =====================
 // DADOS INICIAIS
 // =====================
 const initialEstoque = [
@@ -408,9 +542,19 @@ function registrarEntrada() {
     const qty = parseInt(document.getElementById('entradaQtd').value);
     if (!matId || !qty || qty <= 0) return showToast('Preencha material e quantidade', 'error');
     
+    const mat = estoque.find(i => i.id === matId);
     estoque = estoque.map(i => i.id === matId ? {...i, entradas: i.entradas + qty, estoque_atual: i.estoque_atual + qty} : i);
-    entradas.push({ id: Date.now(), materialId: matId, quantidade: qty, fornecedor: document.getElementById('entradaFornecedor').value, nf: document.getElementById('entradaNF').value, data: new Date().toISOString() });
+    entradas.push({ 
+        id: Date.now(), 
+        materialId: matId, 
+        quantidade: qty, 
+        fornecedor: document.getElementById('entradaFornecedor').value, 
+        nf: document.getElementById('entradaNF').value, 
+        data: new Date().toISOString(),
+        registradoPor: usuarioAtual?.nome || 'Sistema'
+    });
     saveData();
+    registrarLog('entrada', `Entrada de ${qty}x ${mat?.material}`);
     
     document.getElementById('entradaMaterial').value = '';
     document.getElementById('entradaQtd').value = '';
@@ -432,9 +576,19 @@ function registrarSaida() {
     const mat = estoque.find(i => i.id === matId);
     if (mat.estoque_atual < qty) return showToast('Quantidade insuficiente!', 'error');
     
+    const obra = obras.find(o => o.id === obraId);
     estoque = estoque.map(i => i.id === matId ? {...i, saidas: i.saidas + qty, estoque_atual: i.estoque_atual - qty} : i);
-    saidas.push({ id: Date.now(), materialId: matId, quantidade: qty, obraId, responsavelId: respId, data: new Date().toISOString() });
+    saidas.push({ 
+        id: Date.now(), 
+        materialId: matId, 
+        quantidade: qty, 
+        obraId, 
+        responsavelId: respId, 
+        data: new Date().toISOString(),
+        registradoPor: usuarioAtual?.nome || 'Sistema'
+    });
     saveData();
+    registrarLog('saida', `Saída de ${qty}x ${mat?.material} para ${obra?.nome}`);
     
     document.getElementById('saidaMaterial').value = '';
     document.getElementById('saidaQtd').value = '';
@@ -533,5 +687,5 @@ function deletarResponsavel(id) {
 // =====================
 document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
-    renderDashboard();
+    verificarAutenticacao();
 });
