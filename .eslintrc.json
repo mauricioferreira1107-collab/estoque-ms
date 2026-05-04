@@ -1,0 +1,37 @@
+{
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "extends": "eslint:recommended",
+  "globals": {
+    "lucide": "readonly"
+  },
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-console": "off",
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-var": "error",
+    "prefer-const": "warn"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "test-results/",
+    "playwright-report/"
+  ],
+  "overrides": [
+    {
+      "files": ["service-worker.js"],
+      "env": { "serviceworker": true, "browser": false }
+    },
+    {
+      "files": ["tests/**/*.js", "playwright.config.js"],
+      "env": { "node": true, "browser": false },
+      "parserOptions": { "sourceType": "module" }
+    }
+  ]
+}

@@ -2,69 +2,79 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#1e293b">
+    <meta name="description" content="Sistema de controle de estoque da MS Pinturas — registro de entradas, saídas, materiais e consumo por obra.">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MS Estoque">
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
     <title>MS Pinturas - Controle de Estoque</title>
+    <!-- CDN: Tailwind Play (cdn.tailwindcss.com) é compilado on-the-fly e não suporta SRI estável.
+         Lucide é pinado em versão para evitar surpresa silenciosa. Para SRI estrito, gere o hash
+         com `curl ... | openssl dgst -sha384 -binary | openssl base64 -A` e adicione integrity=. -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
     <style>
         .page { display: none; }
         .page.active { display: block; }
-        .toast { position: fixed; bottom: 2rem; right: 2rem; padding: 1rem 1.5rem; background: #10b981; color: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 1000; animation: slideIn 0.3s ease; }
+        #toastContainer { position: fixed; bottom: 1rem; right: 1rem; z-index: 1000; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
+        .toast { padding: 1rem 1.5rem; background: #10b981; color: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); animation: slideIn 0.3s ease; pointer-events: auto; max-width: 90vw; }
         .toast.error { background: #ef4444; }
         @keyframes slideIn { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
+        .modal-overlay.hidden { display: none; }
+        button:focus-visible, input:focus-visible, select:focus-visible, [role="button"]:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 via-slate-100 to-blue-50 min-h-screen">
+    <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
     <!-- Tela de Login -->
-    <div id="loginScreen" class="fixed inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 flex items-center justify-center z-[200] p-4">
+    <div id="loginScreen" class="fixed inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 flex items-center justify-center z-[200] p-4" role="dialog" aria-labelledby="loginTitle">
         <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
             <div class="text-center mb-8">
                 <div class="w-20 h-20 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                     <i data-lucide="package" class="w-10 h-10 text-white"></i>
                 </div>
-                <h1 class="text-2xl font-bold text-slate-800">MS Pinturas</h1>
+                <h1 id="loginTitle" class="text-2xl font-bold text-slate-800">MS Pinturas</h1>
                 <p class="text-slate-500">Controle de Estoque</p>
             </div>
-            
-            <div id="loginError" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center"></div>
-            
-            <div class="space-y-4">
+
+            <div id="loginError" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center" role="alert"></div>
+
+            <form id="loginForm" class="space-y-4" onsubmit="event.preventDefault(); fazerLogin();" novalidate>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Usuário</label>
+                    <label for="loginUser" class="block text-sm font-medium text-slate-700 mb-2">Usuário</label>
                     <div class="relative">
-                        <i data-lucide="user" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
-                        <input type="text" id="loginUser" placeholder="Digite seu usuário" 
-                            class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            onkeypress="if(event.key==='Enter')fazerLogin()">
+                        <i data-lucide="user" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true"></i>
+                        <input type="text" id="loginUser" name="usuario" placeholder="Digite seu usuário" required autocomplete="username"
+                            class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                 </div>
-                
+
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Senha</label>
+                    <label for="loginSenha" class="block text-sm font-medium text-slate-700 mb-2">Senha</label>
                     <div class="relative">
-                        <i data-lucide="lock" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
-                        <input type="password" id="loginSenha" placeholder="Digite sua senha" 
-                            class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            onkeypress="if(event.key==='Enter')fazerLogin()">
+                        <i data-lucide="lock" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true"></i>
+                        <input type="password" id="loginSenha" name="senha" placeholder="Digite sua senha" required autocomplete="current-password"
+                            class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                 </div>
-                
+
                 <div class="flex items-center gap-2">
                     <input type="checkbox" id="lembrarLogin" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
-                    <label for="lembrarLogin" class="text-sm text-slate-600">Manter conectado</label>
+                    <label for="lembrarLogin" class="text-sm text-slate-600">Manter conectado por 30 dias</label>
                 </div>
-                
-                <button onclick="fazerLogin()" class="w-full py-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                    <i data-lucide="log-in" class="w-5 h-5"></i>
+
+                <button type="submit" class="w-full py-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                    <i data-lucide="log-in" class="w-5 h-5" aria-hidden="true"></i>
                     Entrar
                 </button>
-            </div>
-            
+            </form>
+
             <p class="text-center text-xs text-slate-400 mt-6">Acesso restrito a usuários autorizados</p>
         </div>
     </div>
@@ -81,13 +91,13 @@
                     <p class="text-xs text-slate-400">Controle de Estoque</p>
                 </div>
             </div>
-            <button onclick="toggleMenu()" class="lg:hidden p-2 rounded-lg hover:bg-slate-700">
-                <i data-lucide="menu" class="w-6 h-6"></i>
+            <button onclick="toggleMenu()" class="lg:hidden p-2 rounded-lg hover:bg-slate-700" aria-label="Abrir menu" aria-controls="mobileMenu">
+                <i data-lucide="menu" class="w-6 h-6" aria-hidden="true"></i>
             </button>
             <div class="hidden lg:flex items-center gap-3">
                 <span id="userLogado" class="text-sm text-slate-400"></span>
-                <button onclick="fazerLogout()" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 transition-colors text-sm">
-                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                <button onclick="fazerLogout()" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 transition-colors text-sm" aria-label="Sair do sistema">
+                    <i data-lucide="log-out" class="w-4 h-4" aria-hidden="true"></i>
                     Sair
                 </button>
             </div>
@@ -95,13 +105,13 @@
     </header>
 
     <!-- Mobile Menu -->
-    <nav id="mobileMenu" class="hidden lg:hidden fixed top-16 left-0 right-0 bg-white border-b border-slate-200 p-4 z-40">
-        <button onclick="navigateTo('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="home" class="w-5 h-5"></i> Dashboard</button>
-        <button onclick="navigateTo('estoque')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="package" class="w-5 h-5"></i> Estoque</button>
-        <button onclick="navigateTo('entrada')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="plus" class="w-5 h-5"></i> Entrada</button>
-        <button onclick="navigateTo('saida')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="minus" class="w-5 h-5"></i> Saída</button>
-        <button onclick="navigateTo('cadastros')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="clipboard-list" class="w-5 h-5"></i> Cadastros</button>
-        <button onclick="navigateTo('porObra')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100"><i data-lucide="building-2" class="w-5 h-5"></i> Por Obra</button>
+    <nav id="mobileMenu" class="hidden lg:hidden fixed top-16 left-0 right-0 bg-white border-b border-slate-200 p-4 z-40" aria-label="Menu principal">
+        <button onclick="navigateTo('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100" data-page="dashboard"><i data-lucide="home" class="w-5 h-5"></i> Dashboard</button>
+        <button onclick="navigateTo('estoque')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100" data-page="estoque"><i data-lucide="package" class="w-5 h-5"></i> Estoque</button>
+        <button onclick="navigateTo('entrada')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100" data-page="entrada"><i data-lucide="plus" class="w-5 h-5"></i> Entrada</button>
+        <button onclick="navigateTo('saida')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100" data-page="saida"><i data-lucide="minus" class="w-5 h-5"></i> Saída</button>
+        <button onclick="navigateTo('cadastros')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100" data-page="cadastros"><i data-lucide="clipboard-list" class="w-5 h-5"></i> Cadastros</button>
+        <button onclick="navigateTo('porObra')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100" data-page="porObra"><i data-lucide="building-2" class="w-5 h-5"></i> Por Obra</button>
         <hr class="my-2 border-slate-200">
         <div class="px-4 py-2 text-sm text-slate-500">Logado como: <span id="userLogadoMobile" class="font-medium text-slate-700"></span></div>
         <button onclick="fazerLogout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50"><i data-lucide="log-out" class="w-5 h-5"></i> Sair</button>
@@ -112,7 +122,7 @@
         <aside class="hidden lg:block w-64 shrink-0">
             <div class="bg-white rounded-2xl border border-slate-200 p-4 sticky top-24 space-y-2">
                 <button data-page="dashboard" onclick="navigateTo('dashboard')" class="nav-btn active w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="home" class="w-5 h-5"></i><span class="font-medium">Dashboard</span></button>
-                <button data-page="estoque" onclick="navigateTo('estoque')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="package" class="w-5 h-5"></i><span class="font-medium">Estoque</span><span id="badgeCriticos" class="ml-auto px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600 hidden"></span></button>
+                <button data-page="estoque" onclick="navigateTo('estoque')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="package" class="w-5 h-5"></i><span class="font-medium">Estoque</span><span id="badgeCriticos" class="ml-auto px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600 hidden" aria-label="itens críticos"></span></button>
                 <button data-page="entrada" onclick="navigateTo('entrada')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="plus-circle" class="w-5 h-5"></i><span class="font-medium">Entrada</span></button>
                 <button data-page="saida" onclick="navigateTo('saida')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="minus-circle" class="w-5 h-5"></i><span class="font-medium">Saída</span></button>
                 <button data-page="cadastros" onclick="navigateTo('cadastros')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-all"><i data-lucide="clipboard-list" class="w-5 h-5"></i><span class="font-medium">Cadastros</span></button>
@@ -123,8 +133,8 @@
         <!-- Main Content -->
         <main class="flex-1 min-w-0">
             <!-- Dashboard -->
-            <div id="page-dashboard" class="page active">
-                <h2 class="text-2xl font-bold text-slate-800 mb-6">Dashboard</h2>
+            <section id="page-dashboard" class="page active" aria-labelledby="dashboardTitle">
+                <h2 id="dashboardTitle" class="text-2xl font-bold text-slate-800 mb-6">Dashboard</h2>
                 <div id="statsGrid" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></div>
                 <div class="grid md:grid-cols-2 gap-4 mb-6">
                     <button onclick="navigateTo('entrada')" class="flex items-center gap-4 p-6 bg-white rounded-2xl border border-slate-200 hover:shadow-lg hover:border-emerald-400 transition-all">
@@ -140,126 +150,171 @@
                     <h3 class="font-semibold text-slate-800 text-lg mb-4 flex items-center gap-2"><i data-lucide="history" class="w-5 h-5"></i>Movimentações Recentes</h3>
                     <div id="historicoRecente"></div>
                 </div>
-            </div>
+            </section>
 
             <!-- Estoque -->
-            <div id="page-estoque" class="page">
-                <h2 class="text-2xl font-bold text-slate-800 mb-6">Estoque Geral</h2>
+            <section id="page-estoque" class="page" aria-labelledby="estoqueTitle">
+                <h2 id="estoqueTitle" class="text-2xl font-bold text-slate-800 mb-6">Estoque Geral</h2>
                 <div class="bg-white rounded-2xl border border-slate-200 p-4 mb-4">
                     <div class="flex flex-col lg:flex-row gap-4">
                         <div class="flex-1 relative">
-                            <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
-                            <input type="text" id="searchEstoque" placeholder="Buscar material..." oninput="filterEstoque()" class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <label for="searchEstoque" class="sr-only">Buscar material</label>
+                            <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" aria-hidden="true"></i>
+                            <input type="text" id="searchEstoque" placeholder="Buscar material..." oninput="filterEstoqueDebounced()" aria-label="Buscar material" class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div class="flex gap-2">
-                            <select id="filterCategoria" onchange="filterEstoque()" class="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="">Categorias</option><option value="EPI">EPI</option><option value="Ferramentas">Ferramentas</option><option value="Consumíveis">Consumíveis</option><option value="Elétrico">Elétrico</option><option value="Outros">Outros</option></select>
-                            <select id="filterStatus" onchange="filterEstoque()" class="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="">Status</option><option value="OK">OK</option><option value="REPOR">Repor</option><option value="CRÍTICO">Crítico</option></select>
+                            <label for="filterCategoria" class="sr-only">Filtrar por categoria</label>
+                            <select id="filterCategoria" onchange="filterEstoque()" aria-label="Filtrar por categoria" class="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="">Categorias</option><option value="EPI">EPI</option><option value="Ferramentas">Ferramentas</option><option value="Consumíveis">Consumíveis</option><option value="Elétrico">Elétrico</option><option value="Outros">Outros</option></select>
+                            <label for="filterStatus" class="sr-only">Filtrar por status</label>
+                            <select id="filterStatus" onchange="filterEstoque()" aria-label="Filtrar por status" class="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="">Status</option><option value="OK">OK</option><option value="REPOR">Repor</option><option value="CRÍTICO">Crítico</option></select>
                         </div>
                     </div>
                 </div>
                 <p class="text-slate-500 mb-4"><span id="countItens" class="font-semibold text-slate-700">0</span> itens</p>
                 <div id="estoqueGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
-            </div>
+            </section>
 
             <!-- Entrada -->
-            <div id="page-entrada" class="page">
-                <h2 class="text-2xl font-bold text-slate-800 mb-6">Registrar Entrada</h2>
+            <section id="page-entrada" class="page" aria-labelledby="entradaTitle">
+                <h2 id="entradaTitle" class="text-2xl font-bold text-slate-800 mb-6">Registrar Entrada</h2>
                 <div class="max-w-xl">
-                    <div class="bg-white rounded-2xl border border-slate-200 p-6">
+                    <form class="bg-white rounded-2xl border border-slate-200 p-6" onsubmit="event.preventDefault(); registrarEntrada();" novalidate>
                         <div class="flex items-center gap-3 mb-6">
                             <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center"><i data-lucide="plus" class="w-6 h-6 text-emerald-600"></i></div>
                             <div><h3 class="text-xl font-bold text-slate-800">Nova Entrada</h3><p class="text-slate-500 text-sm">Adicionar materiais ao estoque</p></div>
                         </div>
                         <div class="space-y-4">
-                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Material *</label><select id="entradaMaterial" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
-                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Quantidade *</label><input type="number" id="entradaQtd" min="1" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="0"></div>
-                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Fornecedor</label><input type="text" id="entradaFornecedor" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="Nome do fornecedor"></div>
-                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Nota Fiscal</label><input type="text" id="entradaNF" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="Número da NF"></div>
-                            <button onclick="registrarEntrada()" class="w-full py-4 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors">Confirmar Entrada</button>
+                            <div><label for="entradaMaterial" class="block text-sm font-medium text-slate-700 mb-2">Material <span aria-hidden="true">*</span></label><select id="entradaMaterial" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
+                            <div><label for="entradaQtd" class="block text-sm font-medium text-slate-700 mb-2">Quantidade <span aria-hidden="true">*</span></label><input type="number" id="entradaQtd" min="1" step="1" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="0"></div>
+                            <div><label for="entradaFornecedor" class="block text-sm font-medium text-slate-700 mb-2">Fornecedor</label><input type="text" id="entradaFornecedor" maxlength="200" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="Nome do fornecedor"></div>
+                            <div><label for="entradaNF" class="block text-sm font-medium text-slate-700 mb-2">Nota Fiscal</label><input type="text" id="entradaNF" maxlength="200" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="Número da NF"></div>
+                            <button type="submit" class="w-full py-4 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors">Confirmar Entrada</button>
                         </div>
-                    </div>
+                    </form>
                     <div class="bg-white rounded-2xl border border-slate-200 p-6 mt-6">
                         <h3 class="font-semibold text-slate-800 mb-4">Últimas Entradas</h3>
                         <div id="historicoEntradas"></div>
                     </div>
                 </div>
-            </div>
+            </section>
 
             <!-- Saída -->
-            <div id="page-saida" class="page">
-                <h2 class="text-2xl font-bold text-slate-800 mb-6">Registrar Saída</h2>
+            <section id="page-saida" class="page" aria-labelledby="saidaTitle">
+                <h2 id="saidaTitle" class="text-2xl font-bold text-slate-800 mb-6">Registrar Saída</h2>
                 <div class="max-w-xl">
-                    <div class="bg-white rounded-2xl border border-slate-200 p-6">
+                    <form class="bg-white rounded-2xl border border-slate-200 p-6" onsubmit="event.preventDefault(); registrarSaida();" novalidate>
                         <div class="flex items-center gap-3 mb-6">
                             <div class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center"><i data-lucide="minus" class="w-6 h-6 text-orange-600"></i></div>
                             <div><h3 class="text-xl font-bold text-slate-800">Nova Saída</h3><p class="text-slate-500 text-sm">Retirar materiais do estoque</p></div>
                         </div>
                         <div class="space-y-4">
-                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Material *</label><select id="saidaMaterial" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
-                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Quantidade *</label><input type="number" id="saidaQtd" min="1" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="0"></div>
-                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Obra/Destino *</label><select id="saidaObra" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
-                            <div><label class="block text-sm font-medium text-slate-700 mb-2">Responsável</label><select id="saidaResponsavel" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
-                            <button onclick="registrarSaida()" class="w-full py-4 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 transition-colors">Confirmar Saída</button>
+                            <div><label for="saidaMaterial" class="block text-sm font-medium text-slate-700 mb-2">Material <span aria-hidden="true">*</span></label><select id="saidaMaterial" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
+                            <div><label for="saidaQtd" class="block text-sm font-medium text-slate-700 mb-2">Quantidade <span aria-hidden="true">*</span></label><input type="number" id="saidaQtd" min="1" step="1" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl" placeholder="0"></div>
+                            <div><label for="saidaObra" class="block text-sm font-medium text-slate-700 mb-2">Obra/Destino <span aria-hidden="true">*</span></label><select id="saidaObra" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
+                            <div><label for="saidaResponsavel" class="block text-sm font-medium text-slate-700 mb-2">Responsável</label><select id="saidaResponsavel" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></select></div>
+                            <button type="submit" class="w-full py-4 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 transition-colors">Confirmar Saída</button>
                         </div>
-                    </div>
+                    </form>
                     <div class="bg-white rounded-2xl border border-slate-200 p-6 mt-6">
                         <h3 class="font-semibold text-slate-800 mb-4">Últimas Saídas</h3>
                         <div id="historicoSaidas"></div>
                     </div>
                 </div>
-            </div>
+            </section>
 
             <!-- Cadastros -->
-            <div id="page-cadastros" class="page">
-                <h2 class="text-2xl font-bold text-slate-800 mb-6">Cadastros</h2>
-                
+            <section id="page-cadastros" class="page" aria-labelledby="cadastrosTitle">
+                <h2 id="cadastrosTitle" class="text-2xl font-bold text-slate-800 mb-6">Cadastros</h2>
+
+                <!-- Backup -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+                    <h3 class="font-semibold text-slate-800 text-lg mb-4 flex items-center gap-2"><i data-lucide="database" class="w-5 h-5"></i>Backup dos Dados</h3>
+                    <p class="text-sm text-slate-500 mb-4">Os dados ficam apenas no seu navegador. Exporte um backup periodicamente para não perder nada.</p>
+                    <div class="flex flex-wrap gap-3">
+                        <button onclick="exportarDados()" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 flex items-center gap-2"><i data-lucide="download" class="w-4 h-4" aria-hidden="true"></i>Exportar (JSON)</button>
+                        <label class="px-6 py-3 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 flex items-center gap-2 cursor-pointer">
+                            <i data-lucide="upload" class="w-4 h-4" aria-hidden="true"></i>Importar
+                            <input type="file" accept="application/json,.json" class="hidden" onchange="importarDados(this.files[0]); this.value='';" aria-label="Importar arquivo de backup">
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Material -->
                 <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
                     <h3 class="font-semibold text-slate-800 text-lg mb-4 flex items-center gap-2"><i data-lucide="package" class="w-5 h-5"></i>Novo Material</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div class="lg:col-span-2"><input type="text" id="novoMaterialNome" placeholder="Nome do Material *" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
-                        <div><select id="novoMaterialCat" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="EPI">EPI</option><option value="Ferramentas">Ferramentas</option><option value="Consumíveis">Consumíveis</option><option value="Elétrico">Elétrico</option><option value="Outros">Outros</option></select></div>
-                        <div><select id="novoMaterialUnid" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="Unid">Unid</option><option value="PC">PC</option><option value="PR">PR</option><option value="RL">RL</option><option value="SC">SC</option><option value="KG">KG</option><option value="LT">LT</option></select></div>
-                        <div><input type="number" id="novoMaterialEstoque" placeholder="Estoque Inicial" min="0" value="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
-                        <div><input type="number" id="novoMaterialMinimo" placeholder="Estoque Mínimo" min="0" value="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
-                    </div>
-                    <button onclick="cadastrarMaterial()" class="mt-4 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">Cadastrar Material</button>
+                    <form class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" onsubmit="event.preventDefault(); cadastrarMaterial();" novalidate>
+                        <div class="lg:col-span-2"><label for="novoMaterialNome" class="sr-only">Nome do material</label><input type="text" id="novoMaterialNome" placeholder="Nome do Material *" required maxlength="200" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div><label for="novoMaterialCat" class="sr-only">Categoria</label><select id="novoMaterialCat" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="EPI">EPI</option><option value="Ferramentas">Ferramentas</option><option value="Consumíveis">Consumíveis</option><option value="Elétrico">Elétrico</option><option value="Outros">Outros</option></select></div>
+                        <div><label for="novoMaterialUnid" class="sr-only">Unidade</label><select id="novoMaterialUnid" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="Unid">Unid</option><option value="PC">PC</option><option value="PR">PR</option><option value="RL">RL</option><option value="SC">SC</option><option value="KG">KG</option><option value="LT">LT</option></select></div>
+                        <div><label for="novoMaterialEstoque" class="sr-only">Estoque inicial</label><input type="number" id="novoMaterialEstoque" placeholder="Estoque Inicial" min="0" step="1" value="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div><label for="novoMaterialMinimo" class="sr-only">Estoque mínimo</label><input type="number" id="novoMaterialMinimo" placeholder="Estoque Mínimo" min="0" step="1" value="0" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div class="md:col-span-2 lg:col-span-3"><button type="submit" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">Cadastrar Material</button></div>
+                    </form>
+                    <p class="text-sm text-slate-500 mt-4">Para editar ou excluir materiais existentes, use a página <strong>Estoque Geral</strong>.</p>
                 </div>
 
                 <!-- Obra -->
                 <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
                     <h3 class="font-semibold text-slate-800 text-lg mb-4 flex items-center gap-2"><i data-lucide="building-2" class="w-5 h-5"></i>Nova Obra</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div><input type="text" id="novaObraId" placeholder="Código *" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
-                        <div class="lg:col-span-2"><input type="text" id="novaObraNome" placeholder="Nome da Obra *" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
-                        <div><select id="novaObraStatus" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="Em andamento">Em andamento</option><option value="Ativo">Ativo</option><option value="Finalizada">Finalizada</option></select></div>
-                        <div class="lg:col-span-4"><input type="text" id="novaObraEndereco" placeholder="Endereço" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
-                    </div>
-                    <button onclick="cadastrarObra()" class="mt-4 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">Cadastrar Obra</button>
+                    <form class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" onsubmit="event.preventDefault(); cadastrarObra();" novalidate>
+                        <div><label for="novaObraId" class="sr-only">Código</label><input type="text" id="novaObraId" placeholder="Código *" required maxlength="50" pattern="[A-Za-z0-9_-]+" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div class="lg:col-span-2"><label for="novaObraNome" class="sr-only">Nome da obra</label><input type="text" id="novaObraNome" placeholder="Nome da Obra *" required maxlength="200" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div><label for="novaObraStatus" class="sr-only">Status</label><select id="novaObraStatus" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="Em andamento">Em andamento</option><option value="Ativo">Ativo</option><option value="Finalizada">Finalizada</option></select></div>
+                        <div class="lg:col-span-4"><label for="novaObraEndereco" class="sr-only">Endereço</label><input type="text" id="novaObraEndereco" placeholder="Endereço" maxlength="200" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div class="md:col-span-2 lg:col-span-4"><button type="submit" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">Cadastrar Obra</button></div>
+                    </form>
                     <div class="mt-6 pt-6 border-t border-slate-200"><h4 class="font-medium text-slate-700 mb-3">Obras Cadastradas</h4><div id="listaObras"></div></div>
                 </div>
 
                 <!-- Responsável -->
                 <div class="bg-white rounded-2xl border border-slate-200 p-6">
                     <h3 class="font-semibold text-slate-800 text-lg mb-4 flex items-center gap-2"><i data-lucide="users" class="w-5 h-5"></i>Novo Responsável</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><input type="text" id="novoRespNome" placeholder="Nome *" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
-                        <div><select id="novoRespFuncao" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="">Função</option><option value="Motorista">Motorista</option><option value="Fiscal">Fiscal</option><option value="Pintor">Pintor</option><option value="Encarregado">Encarregado</option><option value="Ajudante">Ajudante</option></select></div>
-                    </div>
-                    <button onclick="cadastrarResponsavel()" class="mt-4 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">Cadastrar Responsável</button>
+                    <form class="grid grid-cols-1 md:grid-cols-2 gap-4" onsubmit="event.preventDefault(); cadastrarResponsavel();" novalidate>
+                        <div><label for="novoRespNome" class="sr-only">Nome</label><input type="text" id="novoRespNome" placeholder="Nome *" required maxlength="200" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                        <div><label for="novoRespFuncao" class="sr-only">Função</label><select id="novoRespFuncao" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"><option value="">Função</option><option value="Motorista">Motorista</option><option value="Fiscal">Fiscal</option><option value="Pintor">Pintor</option><option value="Encarregado">Encarregado</option><option value="Ajudante">Ajudante</option></select></div>
+                        <div class="md:col-span-2"><button type="submit" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700">Cadastrar Responsável</button></div>
+                    </form>
                     <div class="mt-6 pt-6 border-t border-slate-200"><h4 class="font-medium text-slate-700 mb-3">Responsáveis Cadastrados</h4><div id="listaResponsaveis" class="grid md:grid-cols-2 gap-2"></div></div>
                 </div>
-            </div>
+            </section>
 
             <!-- Por Obra -->
-            <div id="page-porObra" class="page">
-                <h2 class="text-2xl font-bold text-slate-800 mb-6">Consumo por Obra</h2>
+            <section id="page-porObra" class="page" aria-labelledby="porObraTitle">
+                <h2 id="porObraTitle" class="text-2xl font-bold text-slate-800 mb-6">Consumo por Obra</h2>
                 <div class="max-w-md mb-6">
-                    <select id="selectObra" onchange="renderConsumoObra()" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl"><option value="">Todas as Obras</option></select>
+                    <label for="selectObra" class="sr-only">Filtrar por obra</label>
+                    <select id="selectObra" onchange="renderConsumoObra()" aria-label="Filtrar por obra" class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl"><option value="">Todas as Obras</option></select>
                 </div>
                 <div id="obrasContainer"></div>
-            </div>
+            </section>
         </main>
+    </div>
+
+    <!-- Modal Edição de Material -->
+    <div id="editMaterialModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="editMaterialTitle">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="editMaterialTitle" class="text-lg font-bold text-slate-800">Editar Material</h3>
+                <button onclick="fecharEdicaoMaterial()" class="p-2 hover:bg-slate-100 rounded-lg" aria-label="Fechar"><i data-lucide="x" class="w-5 h-5" aria-hidden="true"></i></button>
+            </div>
+            <form class="space-y-3" onsubmit="event.preventDefault(); salvarEdicaoMaterial();" novalidate>
+                <input type="hidden" id="editMaterialId">
+                <div><label for="editMaterialNome" class="block text-sm font-medium text-slate-700 mb-1">Nome</label><input type="text" id="editMaterialNome" required maxlength="200" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label for="editMaterialCat" class="block text-sm font-medium text-slate-700 mb-1">Categoria</label><select id="editMaterialCat" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl"><option value="EPI">EPI</option><option value="Ferramentas">Ferramentas</option><option value="Consumíveis">Consumíveis</option><option value="Elétrico">Elétrico</option><option value="Outros">Outros</option></select></div>
+                    <div><label for="editMaterialUnid" class="block text-sm font-medium text-slate-700 mb-1">Unidade</label><select id="editMaterialUnid" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl"><option value="Unid">Unid</option><option value="PC">PC</option><option value="PR">PR</option><option value="RL">RL</option><option value="SC">SC</option><option value="KG">KG</option><option value="LT">LT</option></select></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label for="editMaterialEstoque" class="block text-sm font-medium text-slate-700 mb-1">Estoque atual</label><input type="number" id="editMaterialEstoque" min="0" step="1" required class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                    <div><label for="editMaterialMinimo" class="block text-sm font-medium text-slate-700 mb-1">Mínimo</label><input type="number" id="editMaterialMinimo" min="0" step="1" required class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl"></div>
+                </div>
+                <p class="text-xs text-slate-500">Editar diretamente o estoque é um ajuste manual; prefira usar Entrada/Saída quando possível.</p>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="fecharEdicaoMaterial()" class="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700">Salvar</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script src="app.js"></script>
